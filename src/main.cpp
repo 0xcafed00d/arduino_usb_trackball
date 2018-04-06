@@ -5,12 +5,12 @@
 //   Config settings
 // ==================================================================
 
-static const int PIN_X1 = 2;
-static const int PIN_X2 = 8;
-static const int PIN_Y1 = 3;
-static const int PIN_Y2 = 9;
-static const int PIN_BUTTON1 = 5;
-static const int PIN_BUTTON2 = 4;
+static const int PIN_X1 = 2;       // white
+static const int PIN_X2 = 4;       // yellow
+static const int PIN_Y1 = 3;       // purple
+static const int PIN_Y2 = 5;       // brown
+static const int PIN_BUTTON1 = 9;  // orange
+static const int PIN_BUTTON2 = 8;  // green
 
 static const int32_t xScale = 8000;
 static const int32_t yScale = 8000;
