@@ -1,16 +1,26 @@
 #include <Arduino.h>
 #include <Mouse.h>
 
+// ==================================================================
+//   Config settings
+// ==================================================================
+
 static const int PIN_X1 = 2;
 static const int PIN_X2 = 8;
 static const int PIN_Y1 = 3;
 static const int PIN_Y2 = 9;
+static const int PIN_BUTTON1 = 5;
+static const int PIN_BUTTON2 = 4;
 
-static const int32_t xScale = 10000;
-static const int32_t yScale = 10000;
+static const int32_t xScale = 8000;
+static const int32_t yScale = 8000;
 
 static const int xInverted = 0;
 static const int yInverted = 0;
+
+static const int updateRate = 50;
+
+// ==================================================================
 
 void xAxisISR();
 void yAxisISR();
@@ -25,10 +35,24 @@ void setup() {
 	attachInterrupt(digitalPinToInterrupt(PIN_Y1), yAxisISR, RISING);
 	pinMode(PIN_X2, INPUT);
 	pinMode(PIN_Y2, INPUT);
+	pinMode(PIN_BUTTON1, INPUT_PULLUP);
+	pinMode(PIN_BUTTON2, INPUT_PULLUP);
+}
+
+void checkMouseButton(int pin, int button) {
+	if (digitalRead(pin) == 0) {
+		if (!Mouse.isPressed(button)) {
+			Mouse.press(button);
+		}
+	} else {
+		if (Mouse.isPressed(button)) {
+			Mouse.release(button);
+		}
+	}
 }
 
 void loop() {
-	delay(20);
+	delay(1000 / updateRate);
 
 	noInterrupts();
 	int32_t x = xcount;
@@ -39,6 +63,9 @@ void loop() {
 
 	if (x != 0 || y != 0)
 		Mouse.move(x / xScale, y / yScale);
+
+	checkMouseButton(PIN_BUTTON1, MOUSE_LEFT);
+	checkMouseButton(PIN_BUTTON2, MOUSE_RIGHT);
 }
 
 void updateAxis(uint32_t& last, volatile int32_t& count, int pin, int inverted) {
