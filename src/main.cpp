@@ -1,5 +1,9 @@
 #include <Arduino.h>
+#include <Keyboard.h>
 #include <Mouse.h>
+
+#include "button.h"
+#include "timeout.h"
 
 // ==================================================================
 //   Config settings
@@ -28,8 +32,15 @@ void yAxisISR();
 volatile int32_t xcount = 0;
 volatile int32_t ycount = 0;
 
+enum class MouseMode { Rotate, Translate, Scale };
+MouseMode mouseMode = MouseMode::Rotate;
+Button leftButton(PIN_BUTTON1);
+Button rightButton(PIN_BUTTON2);
+
+TimeOut InactiveTimeOut;
 void setup() {
 	Mouse.begin();
+	Keyboard.begin();
 
 	attachInterrupt(digitalPinToInterrupt(PIN_X1), xAxisISR, RISING);
 	attachInterrupt(digitalPinToInterrupt(PIN_Y1), yAxisISR, RISING);
@@ -39,20 +50,19 @@ void setup() {
 	pinMode(PIN_BUTTON2, INPUT_PULLUP);
 }
 
-void checkMouseButton(int pin, int button) {
-	if (digitalRead(pin) == 0) {
-		if (!Mouse.isPressed(button)) {
-			Mouse.press(button);
-		}
-	} else {
-		if (Mouse.isPressed(button)) {
-			Mouse.release(button);
-		}
-	}
+int8_t limit(int32_t n) {
+	if (n < -128)
+		n = -128;
+	if (n > 127)
+		n = 127;
+
+	return (int8_t)n;
 }
 
 void loop() {
 	delay(1000 / updateRate);
+	leftButton.update();
+	rightButton.update();
 
 	noInterrupts();
 	int32_t x = xcount;
@@ -61,11 +71,38 @@ void loop() {
 	ycount = 0;
 	interrupts();
 
-	if (x != 0 || y != 0)
-		Mouse.move(x / xScale, y / yScale);
+	if (mouseMode == MouseMode::Scale) {
+		if (y != 0) {
+			Mouse.move(0, 0, limit((y / xScale) / 6));
+		}
+	} else {
+		if (x != 0 || y != 0) {
+			Mouse.move(limit(x / xScale), limit(y / yScale));
+			InactiveTimeOut = TimeOut(200);
+		}
+	}
 
-	checkMouseButton(PIN_BUTTON1, MOUSE_LEFT);
-	checkMouseButton(PIN_BUTTON2, MOUSE_RIGHT);
+	if (InactiveTimeOut.hasTimedOut()) {
+		Keyboard.release(KEY_LEFT_SHIFT);
+		Mouse.release(MOUSE_MIDDLE);
+	} else {
+		if (mouseMode == MouseMode::Rotate) {
+			Keyboard.press(KEY_LEFT_SHIFT);
+		}
+		Mouse.press(MOUSE_MIDDLE);
+	}
+
+	if (leftButton.justPressed()) {
+		mouseMode = MouseMode::Translate;
+	}
+
+	if (rightButton.justPressed()) {
+		mouseMode = MouseMode::Scale;
+	}
+
+	if (leftButton.isPressed() && rightButton.isPressed()) {
+		mouseMode = MouseMode::Rotate;
+	}
 }
 
 void updateAxis(uint32_t& last, volatile int32_t& count, int pin, int inverted) {
